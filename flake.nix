@@ -2,7 +2,7 @@
   description = "SCD30 CO2 sensor monitor for Raspberry Pi Zero 2 W";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -41,7 +41,7 @@
         packages = {
           default = mkPackage pkgs;
           native = mkPackage pkgs;
-          rpi = mkPackage pkgs.pkgsCross.aarch64-multiplatform;
+          rpi = mkPackage pkgs.pkgsCross.aarch64-multiplatform.pkgsStatic;
         };
 
         devShells.default = pkgs.mkShell {
