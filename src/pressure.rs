@@ -4,24 +4,59 @@
 //! the mean pressure for CO2 sensor compensation.
 
 use anyhow::{Context, Result};
+use reqwest::header;
 use soup::prelude::*;
 use tracing::{info, warn};
 
 /// Vienna weather stations for pressure averaging
 const VIENNA_STATIONS: [&str; 3] = ["Wien Donaufeld", "Wien Hohe Warte", "Wien Innere Stadt"];
 
-/// URL for Vienna weather measurements
+/// URL of Vienna weather data page
 const WEATHER_URL: &str = "https://www.wien.gv.at/svc/weather/measurements";
 
 /// Fetch current air pressure from Vienna weather stations
 /// Returns the mean pressure of the configured stations plus the offset
-pub fn fetch_vienna_pressure(pressure_offset: f64) -> Result<f64> {
+pub async fn fetch_vienna_pressure(pressure_offset: f64) -> Result<f64> {
     info!("Fetching weather data from {}", WEATHER_URL);
 
-    let response =
-        reqwest::blocking::get(WEATHER_URL).context("Failed to fetch weather page")?;
+    let mut headers = header::HeaderMap::new();
+    headers.insert(
+        "User-Agent",
+        "Mozilla/5.0 (X11; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0"
+            .parse()
+            .unwrap(),
+    );
+    headers.insert(
+        "Accept",
+        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            .parse()
+            .unwrap(),
+    );
+    headers.insert("Accept-Language", "en".parse().unwrap());
+    headers.insert("DNT", "1".parse().unwrap());
+    headers.insert("Sec-GPC", "1".parse().unwrap());
+    headers.insert("Connection", "keep-alive".parse().unwrap());
+    headers.insert("Upgrade-Insecure-Requests", "1".parse().unwrap());
+    headers.insert("Sec-Fetch-Dest", "document".parse().unwrap());
+    headers.insert("Sec-Fetch-Mode", "navigate".parse().unwrap());
+    headers.insert("Sec-Fetch-Site", "none".parse().unwrap());
+    headers.insert("Priority", "u=0, i".parse().unwrap());
+    headers.insert("Pragma", "no-cache".parse().unwrap());
+    headers.insert("Cache-Control", "no-cache".parse().unwrap());
 
-    let html = response.text().context("Failed to read response body")?;
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let html = client
+        .get(WEATHER_URL)
+        .headers(headers)
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    dbg!(&html);
 
     parse_vienna_pressure_from_html(&html, pressure_offset)
 }
@@ -273,10 +308,7 @@ mod tests {
 
         let result = parse_vienna_pressure_from_html(html, 0.0);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("No pressure data"));
+        assert!(result.unwrap_err().to_string().contains("No pressure data"));
     }
 
     #[test]

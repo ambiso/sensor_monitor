@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use clap::Parser;
-use embedded_hal::i2c::{ErrorType, I2c};
+use embedded_hal::i2c::I2c;
 use linux_embedded_hal::I2cdev;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
@@ -196,7 +196,11 @@ where
     }
 
     /// Wait for data and read measurement
-    pub fn wait_and_read(&mut self, timeout_secs: u64, pressure_mbar: Option<f64>) -> Result<SensorReading> {
+    pub fn wait_and_read(
+        &mut self,
+        timeout_secs: u64,
+        pressure_mbar: Option<f64>,
+    ) -> Result<SensorReading> {
         let start = std::time::Instant::now();
         let timeout = Duration::from_secs(timeout_secs);
 
@@ -328,11 +332,17 @@ async fn main() -> Result<()> {
                 );
                 sensor.set_measurement_interval(args.interval)?;
             } else {
-                info!("Measurement interval already set to {} seconds, skipping write", args.interval);
+                info!(
+                    "Measurement interval already set to {} seconds, skipping write",
+                    args.interval
+                );
             }
         }
         Err(e) => {
-            warn!("Failed to read current interval: {}, setting to {} seconds", e, args.interval);
+            warn!(
+                "Failed to read current interval: {}, setting to {} seconds",
+                e, args.interval
+            );
             sensor.set_measurement_interval(args.interval)?;
         }
     }
@@ -342,7 +352,7 @@ async fn main() -> Result<()> {
     let pressure_offset = args.pressure_offset;
 
     // Try to get initial pressure
-    let initial_pressure = match fetch_vienna_pressure(pressure_offset) {
+    let initial_pressure = match fetch_vienna_pressure(pressure_offset).await {
         Ok(p) => {
             let p_u16 = (p.round() as u16).clamp(700, 1400);
             current_pressure.store(p_u16, Ordering::SeqCst);
@@ -350,7 +360,10 @@ async fn main() -> Result<()> {
             p_u16
         }
         Err(e) => {
-            warn!("Failed to fetch initial pressure: {}, starting with compensation disabled", e);
+            warn!(
+                "Failed to fetch initial pressure: {}, starting with compensation disabled",
+                e
+            );
             0
         }
     };
@@ -360,12 +373,12 @@ async fn main() -> Result<()> {
 
     // Spawn background task to update pressure every hour
     let pressure_for_task = Arc::clone(&current_pressure);
-    std::thread::spawn(move || {
+    tokio::spawn(async move {
         loop {
             // Sleep for 1 hour
-            sleep(Duration::from_secs(3600));
+            tokio::time::sleep(Duration::from_secs(3600)).await;
 
-            match fetch_vienna_pressure(pressure_offset) {
+            match fetch_vienna_pressure(pressure_offset).await {
                 Ok(p) => {
                     let p_u16 = (p.round() as u16).clamp(700, 1400);
                     let old_pressure = pressure_for_task.swap(p_u16, Ordering::SeqCst);
@@ -393,7 +406,10 @@ async fn main() -> Result<()> {
         // Check if pressure changed significantly (restart continuous measurement if so)
         let current_p = current_pressure.load(Ordering::SeqCst);
         if current_p != last_pressure_update && current_p > 0 {
-            info!("Restarting continuous measurement with updated pressure: {} mBar", current_p);
+            info!(
+                "Restarting continuous measurement with updated pressure: {} mBar",
+                current_p
+            );
             if let Err(e) = sensor.start_continuous_measurement(current_p) {
                 error!("Failed to restart continuous measurement: {}", e);
             } else {
@@ -414,7 +430,9 @@ async fn main() -> Result<()> {
                     reading.co2_ppm,
                     reading.temperature_c,
                     reading.humidity_percent,
-                    reading.pressure_mbar.map_or("N/A".to_string(), |p| format!("{:.0}", p))
+                    reading
+                        .pressure_mbar
+                        .map_or("N/A".to_string(), |p| format!("{:.0}", p))
                 );
 
                 if let Err(e) = insert_reading(&pool, &reading).await {
@@ -438,6 +456,7 @@ mod tests {
     use super::*;
     use std::cell::RefCell;
     use std::collections::VecDeque;
+    use embedded_hal::i2c::ErrorType;
 
     /// Mock I2C error type
     #[derive(Debug, Clone)]
