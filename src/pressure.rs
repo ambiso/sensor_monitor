@@ -6,7 +6,7 @@
 use anyhow::{Context, Result};
 use reqwest::header;
 use soup::prelude::*;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 /// Vienna weather stations for pressure averaging
 const VIENNA_STATIONS: [&str; 3] = ["Wien Donaufeld", "Wien Hohe Warte", "Wien Innere Stadt"];
@@ -17,7 +17,7 @@ const WEATHER_URL: &str = "https://www.wien.gv.at/svc/weather/measurements";
 /// Fetch current air pressure from Vienna weather stations
 /// Returns the mean pressure of the configured stations plus the offset
 pub async fn fetch_vienna_pressure(pressure_offset: f32) -> Result<f32> {
-    info!("Fetching weather data from {}", WEATHER_URL);
+    debug!("Fetching weather data from {}", WEATHER_URL);
 
     let mut headers = header::HeaderMap::new();
     headers.insert(
@@ -55,8 +55,6 @@ pub async fn fetch_vienna_pressure(pressure_offset: f32) -> Result<f32> {
         .await?
         .text()
         .await?;
-
-    dbg!(&html);
 
     parse_vienna_pressure_from_html(&html, pressure_offset)
 }
