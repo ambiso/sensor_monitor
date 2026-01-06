@@ -25,7 +25,7 @@ struct Args {
 
     /// Pressure offset in mBar to add to fetched pressure
     #[arg(short, long, default_value_t = 0.0, allow_hyphen_values = true)]
-    pressure_offset: f64,
+    pressure_offset: f32,
 }
 
 /// SCD30 I2C address
@@ -44,7 +44,7 @@ pub struct SensorReading {
     pub co2_ppm: f32,
     pub temperature_c: f32,
     pub humidity_percent: f32,
-    pub pressure_mbar: Option<f64>,
+    pub pressure_mbar: Option<f32>,
 }
 
 /// SCD30 Sensor driver - generic over I2C implementation
@@ -157,7 +157,7 @@ where
     }
 
     /// Read measurement from sensor
-    pub fn read_measurement(&mut self, pressure_mbar: Option<f64>) -> Result<SensorReading> {
+    pub fn read_measurement(&mut self, pressure_mbar: Option<f32>) -> Result<SensorReading> {
         self.write_command(&CMD_READ_MEASUREMENT)?;
         sleep(Duration::from_millis(3));
 
@@ -199,7 +199,7 @@ where
     pub fn wait_and_read(
         &mut self,
         timeout_secs: u64,
-        pressure_mbar: Option<f64>,
+        pressure_mbar: Option<f32>,
     ) -> Result<SensorReading> {
         let start = std::time::Instant::now();
         let timeout = Duration::from_secs(timeout_secs);
@@ -262,9 +262,9 @@ async fn insert_reading(pool: &PgPool, reading: &SensorReading) -> Result<()> {
         "#,
     )
     .bind(reading.timestamp)
-    .bind(reading.temperature_c as f64)
-    .bind(reading.humidity_percent as f64)
-    .bind(reading.co2_ppm as f64)
+    .bind(reading.temperature_c)
+    .bind(reading.humidity_percent)
+    .bind(reading.co2_ppm)
     .bind(reading.pressure_mbar)
     .execute(pool)
     .await
@@ -418,7 +418,7 @@ async fn main() -> Result<()> {
         }
 
         let pressure_for_reading = if current_p > 0 {
-            Some(current_p as f64)
+            Some(current_p as f32)
         } else {
             None
         };
@@ -678,12 +678,12 @@ mod tests {
         ));
 
         let mut sensor = Scd30::with_i2c(mock);
-        let reading = sensor.read_measurement(Some(1013.0)).unwrap();
+        let reading = sensor.read_measurement(Some(1013.0f32)).unwrap();
 
         assert!((reading.co2_ppm - expected_co2).abs() < 0.01);
         assert!((reading.temperature_c - expected_temp).abs() < 0.01);
         assert!((reading.humidity_percent - expected_humidity).abs() < 0.01);
-        assert_eq!(reading.pressure_mbar, Some(1013.0));
+        assert_eq!(reading.pressure_mbar, Some(1013.0f32));
     }
 
     #[test]

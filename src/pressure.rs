@@ -16,7 +16,7 @@ const WEATHER_URL: &str = "https://www.wien.gv.at/svc/weather/measurements";
 
 /// Fetch current air pressure from Vienna weather stations
 /// Returns the mean pressure of the configured stations plus the offset
-pub async fn fetch_vienna_pressure(pressure_offset: f64) -> Result<f64> {
+pub async fn fetch_vienna_pressure(pressure_offset: f32) -> Result<f32> {
     info!("Fetching weather data from {}", WEATHER_URL);
 
     let mut headers = header::HeaderMap::new();
@@ -63,11 +63,12 @@ pub async fn fetch_vienna_pressure(pressure_offset: f64) -> Result<f64> {
 
 /// Parse pressure data from Vienna weather HTML
 /// Separated from fetch_vienna_pressure for testability
-pub fn parse_vienna_pressure_from_html(html: &str, pressure_offset: f64) -> Result<f64> {
+pub fn parse_vienna_pressure_from_html(html: &str, pressure_offset: f32) -> Result<f32> {
     let soup = Soup::new(html);
 
     // Find the Luftdruck column index from header row
     let mut luftdruck_col: Option<usize> = None;
+    let mut pressures: Vec<f32> = Vec::new();
 
     // Parse table structure - find header row in thead
     for row in soup
@@ -96,9 +97,6 @@ pub fn parse_vienna_pressure_from_html(html: &str, pressure_offset: f64) -> Resu
 
     let luftdruck_col =
         luftdruck_col.context("Could not find 'Luftdruck' column in weather table")?;
-
-    // Parse data rows in tbody
-    let mut pressures: Vec<f64> = Vec::new();
 
     for row in soup
         .tag("tbody")
@@ -140,7 +138,7 @@ pub fn parse_vienna_pressure_from_html(html: &str, pressure_offset: f64) -> Resu
         anyhow::bail!("No pressure data found for Vienna stations");
     }
 
-    let mean_pressure: f64 = pressures.iter().sum::<f64>() / pressures.len() as f64;
+    let mean_pressure: f32 = pressures.iter().sum::<f32>() / pressures.len() as f32;
     let final_pressure = mean_pressure + pressure_offset;
 
     info!(
@@ -154,13 +152,13 @@ pub fn parse_vienna_pressure_from_html(html: &str, pressure_offset: f64) -> Resu
     Ok(final_pressure)
 }
 
-/// Parse pressure string like "1015,0 hPa" to f64
-pub fn parse_pressure(s: &str) -> Option<f64> {
+/// Parse pressure string like "1015,0 hPa" to f32
+pub fn parse_pressure(s: &str) -> Option<f32> {
     // Remove "hPa" suffix and trim
     let s = s.replace("hPa", "").trim().to_string();
     // Replace comma with dot for decimal
     let s = s.replace(',', ".");
-    s.parse::<f64>().ok()
+    s.parse::<f32>().ok()
 }
 
 #[cfg(test)]
@@ -169,9 +167,9 @@ mod tests {
 
     #[test]
     fn test_parse_pressure() {
-        assert_eq!(parse_pressure("1015,0 hPa"), Some(1015.0));
-        assert_eq!(parse_pressure("1013,5 hPa"), Some(1013.5));
-        assert_eq!(parse_pressure("999,9 hPa"), Some(999.9));
+        assert_eq!(parse_pressure("1015,0 hPa"), Some(1015.0f32));
+        assert_eq!(parse_pressure("1013,5 hPa"), Some(1013.5f32));
+        assert_eq!(parse_pressure("999,9 hPa"), Some(999.9f32));
         assert_eq!(parse_pressure("invalid"), None);
     }
 
