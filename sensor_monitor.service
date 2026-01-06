@@ -7,29 +7,31 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=pi
-Group=i2c
+Group=pi
 
 # Path to the binary
-ExecStart=/usr/local/bin/sensor_monitor --interval 2 --pressure-offset 0.0
+ExecStart=/home/pi/sensor_monitor --interval 2 --pressure-offset 0.0
 
 # Environment file with DATABASE_URL
-EnvironmentFile=/etc/sensor_monitor/env
+EnvironmentFile=/home/pi/env
 
 # Restart policy
 Restart=always
 RestartSec=10
 
 # Security hardening
-NoNewPrivileges=yes
-ProtectSystem=strict
-ProtectHome=yes
-PrivateTmp=yes
-ProtectKernelTunables=yes
-ProtectControlGroups=yes
+# NoNewPrivileges=yes
+# ProtectSystem=strict
+# ProtectHome=yes
+# PrivateTmp=yes
+# ProtectKernelTunables=yes
+# ProtectControlGroups=yes
 
-# Allow access to I2C devices
-SupplementaryGroups=i2c
+# Allow access to I2C devices and GPIO
+SupplementaryGroups=i2c gpio
 DeviceAllow=/dev/i2c-1 rw
+DeviceAllow=/dev/gpiomem rw
+DeviceAllow=/dev/gpiochip0 rw
 
 # Logging
 StandardOutput=journal
