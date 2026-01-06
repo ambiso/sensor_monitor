@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 mod pressure;
 
@@ -425,7 +425,7 @@ async fn main() -> Result<()> {
 
         match sensor.wait_and_read(30, pressure_for_reading) {
             Ok(reading) => {
-                info!(
+                debug!(
                     "CO2: {:.1} ppm, Temp: {:.2}°C, Humidity: {:.2}%, Pressure: {} mBar",
                     reading.co2_ppm,
                     reading.temperature_c,
@@ -438,7 +438,7 @@ async fn main() -> Result<()> {
                 if let Err(e) = insert_reading(&pool, &reading).await {
                     error!("Failed to store reading: {}", e);
                 } else {
-                    info!("Reading stored in database");
+                    debug!("Reading stored in database");
                 }
             }
             Err(e) => {
