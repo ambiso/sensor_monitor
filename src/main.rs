@@ -24,7 +24,7 @@ struct Args {
     interval: u16,
 
     /// Pressure offset in mBar to add to fetched pressure
-    #[arg(short, long, default_value_t = 0.0)]
+    #[arg(short, long, default_value_t = 0.0, allow_hyphen_values = true)]
     pressure_offset: f64,
 }
 

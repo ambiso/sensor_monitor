@@ -1,0 +1,40 @@
+[Unit]
+Description=SCD30 CO2 Sensor Monitor
+Documentation=
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=i2c
+
+# Path to the binary
+ExecStart=/usr/local/bin/sensor_monitor --interval 2 --pressure-offset 0.0
+
+# Environment file with DATABASE_URL
+EnvironmentFile=/etc/sensor_monitor/env
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+
+# Allow access to I2C devices
+SupplementaryGroups=i2c
+DeviceAllow=/dev/i2c-1 rw
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sensor_monitor
+
+[Install]
+WantedBy=multi-user.target
