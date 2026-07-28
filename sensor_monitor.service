@@ -1,7 +1,7 @@
 [Unit]
-Description=SCD30 CO2 Sensor Monitor
+Description=SCD30 and SEN66 Air Quality Sensor Monitor
 Documentation=
-After=network-online.target postgresql.service
+After=network-online.target
 Wants=network-online.target
 
 [Service]
@@ -10,10 +10,14 @@ User=pi
 Group=pi
 
 # Path to the binary
-ExecStart=/home/pi/sensor_monitor --interval 2 --pressure-offset 0.0
+ExecStart=/home/pi/sensor_monitor
 
-# Environment file with DATABASE_URL
+# Environment file with GREPTIMEDB_URL, NODE_ID, and optional SPOOL_PATH
 EnvironmentFile=/home/pi/env
+
+# Durable queue used while GreptimeDB is unavailable
+StateDirectory=sensor_monitor
+StateDirectoryMode=0750
 
 # Restart policy
 Restart=always
@@ -27,11 +31,9 @@ RestartSec=10
 # ProtectKernelTunables=yes
 # ProtectControlGroups=yes
 
-# Allow access to I2C devices and GPIO
-SupplementaryGroups=i2c gpio
+# Allow access to the Raspberry Pi I2C bus
+SupplementaryGroups=i2c
 DeviceAllow=/dev/i2c-1 rw
-DeviceAllow=/dev/gpiomem rw
-DeviceAllow=/dev/gpiochip0 rw
 
 # Logging
 StandardOutput=journal
